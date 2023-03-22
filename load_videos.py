@@ -20,6 +20,7 @@ DEVNULL = open(os.devnull, 'wb')
 def download(video_id, args):
     video_path = os.path.join(args.video_folder, video_id + ".mp4")
     subprocess.call([args.youtube, '-f', "''best/mp4''", '--write-auto-sub', '--write-sub',
+                     '--no-check-certificate',
                      '--sub-lang', 'en', '--skip-unavailable-fragments',
                      "https://www.youtube.com/watch?v=" + video_id, "--output",
                      video_path], stdout=DEVNULL, stderr=DEVNULL)
@@ -30,6 +31,9 @@ def run(data):
     video_id, args = data
     if not os.path.exists(os.path.join(args.video_folder, video_id.split('#')[0] + '.mp4')):
        download(video_id.split('#')[0], args)
+
+    if args.no_crop:
+        return
 
     if not os.path.exists(os.path.join(args.video_folder, video_id.split('#')[0] + '.mp4')):
        print ('Can not load video %s, broken link' % video_id.split('#')[0])
@@ -69,29 +73,35 @@ def run(data):
             first_part = ""
         first_part = first_part + '#'.join(video_id.split('#')[::-1])
         path = first_part + '#' + str(entry['start']).zfill(6) + '#' + str(entry['end']).zfill(6) + '.mp4'
-        save(os.path.join(args.out_folder, partition, path), entry['frames'], args.format)
+        save(os.path.join(args.out_folder, partition, path), entry['frames'], args.format, fps // args.sample_rate)
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--video_folder", default='youtube-taichi', help='Path to youtube videos')
-    parser.add_argument("--metadata", default='taichi-metadata-new.csv', help='Path to metadata')
-    parser.add_argument("--out_folder", default='taichi-png', help='Path to output')
-    parser.add_argument("--format", default='.png', help='Storing format')
-    parser.add_argument("--workers", default=1, type=int, help='Number of workers')
-    parser.add_argument("--youtube", default='./youtube-dl', help='Path to youtube-dl')
- 
+    parser.add_argument("--video_folder", default='youtube-raw', help='Path to raw youtube videos')
+    parser.add_argument("--metadata", default='output-metadata.csv', help='Path to metadata')
+    parser.add_argument("--out_folder", default='output', help='Path to output')
+    parser.add_argument("--format", default='.mp4', help='Storing format')
+    parser.add_argument("--workers", default=5, type=int, help='Number of workers')
+    parser.add_argument("--youtube", default='yt-dlp', help='Path to yt-dlp')
+    # parser.add_argument("--delete_raw", action='store_true', help='Delete raw youtube videos')
+    parser.add_argument("--no_crop", action='store_true', help='Download only raw youtube videos')
+    parser.add_argument("--sample_rate", type=int, default=1, help="Sampled video rate")
+     
     parser.add_argument("--image_shape", default=(256, 256), type=lambda x: tuple(map(int, x.split(','))),
                         help="Image shape, None for no resize")
 
     args = parser.parse_args()
     if not os.path.exists(args.video_folder):
         os.makedirs(args.video_folder)
-    if not os.path.exists(args.out_folder):
-        os.makedirs(args.out_folder)
-    for partition in ['test', 'train']:
-        if not os.path.exists(os.path.join(args.out_folder, partition)):
-            os.makedirs(os.path.join(args.out_folder, partition))
+    
+    if not args.no_crop:
+        if not os.path.exists(args.out_folder):
+            os.makedirs(args.out_folder)
+        
+        for partition in ['test', 'train']:
+            if not os.path.exists(os.path.join(args.out_folder, partition)):
+                os.makedirs(os.path.join(args.out_folder, partition))
 
     df = pd.read_csv(args.metadata)
     video_ids = set(df['video_id'])

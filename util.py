@@ -106,16 +106,16 @@ def scheduler(data_list, fn, args):
     args_list = cycle([args])
     f = open(args.chunks_metadata, 'w')
     line = "{video_id},{start},{end},{bbox},{fps},{width},{height},{partition}"
-    print (line.replace('{', '').replace('}', ''), file=f)
+    print(line.replace('{', '').replace('}', ''), file=f)
     for chunks_data in tqdm(pool.imap_unordered(fn, zip(data_list, cycle(device_ids), args_list))):
         for data in chunks_data:
             print (line.format(**data), file=f)
             f.flush()
     f.close()
 
-def save(path, frames, format):
+def save(path, frames, format, fps):
     if format == '.mp4':
-        imageio.mimsave(path, frames)
+        imageio.mimsave(path, frames, fps=fps)
     elif format == '.png':
         if os.path.exists(path):
             print ("Warning: skiping video %s" % os.path.basename(path))
